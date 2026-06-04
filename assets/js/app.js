@@ -1,5 +1,6 @@
 import { openDB, savePokemon, getPokemon } from "./db.js";
 import { fetchPokemon } from "./api.js";
+import { getEvolutionChain } from "./evolution.js";
 
 const grid = document.getElementById("grid");
 const detail = document.getElementById("detail");
@@ -14,19 +15,19 @@ async function init() {
 async function load() {
   for (let i = 1; i <= 151; i++) {
 
-    let pokemon = await getPokemon(db, i);
+    let p = await getPokemon(db, i);
 
-    if (!pokemon) {
-      pokemon = await fetchPokemon(i);
-      pokemon.id = i;
-      savePokemon(db, pokemon);
+    if (!p) {
+      p = await fetchPokemon(i);
+      p.id = i;
+      savePokemon(db, p);
     }
 
-    renderCard(pokemon);
+    render(p);
   }
 }
 
-function renderCard(p) {
+function render(p) {
   const card = document.createElement("div");
   card.className = "card";
 
@@ -36,15 +37,31 @@ function renderCard(p) {
   `;
 
   card.onclick = () => show(p);
+
   grid.appendChild(card);
 }
 
-function show(p) {
+async function show(p) {
+
+  let evoText = "Loading evolution...";
+
+  try {
+    const evo = await getEvolutionChain(p.species.url);
+
+    evoText = evo.map(e => e.name).join(" → ");
+  } catch (e) {
+    evoText = "No evolution data";
+  }
+
   detail.innerHTML = `
     <h2>${p.name}</h2>
     <img src="${p.sprites.front_default}">
-    <p>Height: ${p.height}</p>
-    <p>Weight: ${p.weight}</p>
+
+    <p><b>Height:</b> ${p.height}</p>
+    <p><b>Weight:</b> ${p.weight}</p>
+
+    <p><b>Evolution:</b> ${evoText}</p>
+
     <button onclick="speak('${p.name}')">Speak</button>
   `;
 }
