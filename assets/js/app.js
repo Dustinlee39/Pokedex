@@ -1,136 +1,165 @@
-import { openDB, getPokemon, savePokemon } from "./db.js";
-import { fetchPokemon } from "./api.js";
-import { REGIONS } from "./regions.js";
-import { PokedexController } from "./controller.js";
 
-const grid = document.getElementById("grid");
-const detail = document.getElementById("detail");
+// =======================================
+// POKÉDEX MAIN APP (Termux-safe build)
+// =======================================
 
-let db;
-let cache = [];
+const POKEDEX = {
+  pokemon: [],
+  favorites: JSON.parse(localStorage.getItem('favorites') || "[]"),
+  caught: new Set(JSON.parse(localStorage.getItem('caught') || "[]")),
+  seen: new Set(JSON.parse(localStorage.getItem('seen') || "[]")),
+  shinies: new Set(JSON.parse(localStorage.getItem('shinies') || "[]")),
+};
 
-async function init() {
-  db = await openDB();
+const COMPARE = {
+  slot1: null,
+  slot2: null,
+  activeSlot: null
+};
 
-  loadRegion("kanto");
+// ---------------- DOM ----------------
+document.addEventListener("DOMContentLoaded", async () => {
+  await loadPokemonData();
+  renderPokemonGrid();
+  setupUI();
+});
 
-  setupVoice();
+// ---------------- DATA ----------------
+async function loadPokemonData() {
+  const res = await fetch("https://pokeapi.co/api/v2/pokemon?limit=151");
+  const data = await res.json();
+
+  POKEDEX.pokemon = await Promise.all(
+    data.results.map(async (p) => {
+      const r = await fetch(p.url);
+      const d = await r.json();
+
+      return {
+        id: d.id,
+        name: d.name,
+        sprite: d.sprites.front_default,
+        stats: d.stats,
+        types: d.types.map(t => t.type.name),
+        height: d.height,
+        weight: d.weight
+      };
+    })
+  );
 }
 
-/* REGION LOADER */
-async function loadRegion(name) {
-
-  const region = REGIONS[name];
-
-  cache = [];
+// ---------------- GRID ----------------
+function renderPokemonGrid(list = POKEDEX.pokemon) {
+  const grid = document.getElementById("pokemon-grid");
   grid.innerHTML = "";
 
-  PokedexController.state.cache = cache;
+  list.forEach(poke => {
+    const card = document.createElement("div");
+    card.className = "poke-card";
 
-  for (let i = region.start; i <= region.end; i++) {
+    card.innerHTML = `
+      <img src="${poke.sprite}" />
+      <div>${poke.name}</div>
+    `;
 
-    let p = await getPokemon(db, i);
+    card.addEventListener("click", () => {
+      // SLOT 1
+      if (COMPARE.activeSlot === 1) {
+        COMPARE.slot1 = poke;
+        document.getElementById("compare-slot-1").innerText = poke.name;
+        COMPARE.activeSlot = null;
+        return;
+      }
 
-    if (!p) {
-      p = await fetchPokemon(i);
-      p.id = i;
-      savePokemon(db, p);
-    }
+      // SLOT 2
+      if (COMPARE.activeSlot === 2) {
+        COMPARE.slot2 = poke;
+        document.getElementById("compare-slot-2").innerText = poke.name;
+        COMPARE.activeSlot = null;
+        return;
+      }
 
-    cache.push(p);
-    render(p);
-  }
-}
-
-/* RENDER */
-function render(p) {
-
-  const card = document.createElement("div");
-  card.className = "card";
-
-  card.innerHTML = `
-    <img src="${p.sprites.front_default}">
-    <div>${p.name}</div>
-  `;
-
-  card.onclick = () =>
-    PokedexController.selectPokemon(p, {
-      showDetail,
-      speak: speak
+      showDetail(poke);
     });
 
-  grid.appendChild(card);
+    grid.appendChild(card);
+  });
 }
 
-/* DETAIL VIEW */
-async function showDetail(p) {
+// ---------------- DETAIL ----------------
+function showDetail(poke) {
+  const el = document.getElementById("detail-content");
 
-  const evo =
-    await PokedexController.getEvolutionText(p);
+  el.innerHTML = `
+    <h2>${poke.name}</h2>
+    <img src="${poke.sprite}" />
 
-  detail.innerHTML = `
-    <h2>${p.name}</h2>
-    <img src="${p.sprites.front_default}">
-    <p>${evo}</p>
+    <p>Height: ${poke.height}</p>
+    <p>Weight: ${poke.weight}</p>
 
-    <button onclick="narratePokemon('${p.name}')">
-      Narrate
-    </button>
+    <button onclick="speak('${poke.name}')">Speak</button>
   `;
+
+  switchView("detail");
 }
 
-/* VOICE */
-function setupVoice() {
+// ---------------- COMPARE ----------------
+function runCompare() {
+  if (!COMPARE.slot1 || !COMPARE.slot2) {
+    alert("Select 2 Pokémon first");
+    return;
+  }
 
-  const SpeechRecognition =
-    window.SpeechRecognition ||
-    window.webkitSpeechRecognition;
+  const a = COMPARE.slot1;
+  const b = COMPARE.slot2;
 
-  if (!SpeechRecognition) return;
+  const html = `
+    <h3>${a.name} vs ${b.name}</h3>
 
-  const rec = new SpeechRecognition();
-  rec.lang = "en-US";
+    <p>HP: ${a.stats[0].base_stat} vs ${b.stats[0].base_stat}</p>
+    <p>ATK: ${a.stats[1].base_stat} vs ${b.stats[1].base_stat}</p>
+    <p>DEF: ${a.stats[2].base_stat} vs ${b.stats[2].base_stat}</p>
+    <p>SPD: ${a.stats[5].base_stat} vs ${b.stats[5].base_stat}</p>
+  `;
 
-  rec.onresult = (e) => {
-
-    const text =
-      e.results[0][0].transcript;
-
-    const result =
-      PokedexController.voiceCommand(text, {
-        loadRegion,
-        findByName: (name) =>
-          cache.find(p => p.name === name)
-      });
-
-    if (result && typeof result === "object") {
-      PokedexController.selectPokemon(result, {
-        showDetail,
-        speak
-      });
-    }
-  };
-
-  document.addEventListener("click", () => {
-    rec.start();
-  }, { once: true });
+  document.getElementById("compare-results").innerHTML = html;
+  document.getElementById("compare-results").classList.remove("hidden");
 }
 
-/* SPEECH */
+// ---------------- VOICE ----------------
 function speak(text) {
   speechSynthesis.speak(
     new SpeechSynthesisUtterance(text)
   );
 }
 
-window.narratePokemon = function(name) {
+// ---------------- UI ----------------
+function setupUI() {
 
-  const p =
-    cache.find(x => x.name === name);
+  document.getElementById("compare-slot-1")
+    .addEventListener("click", () => {
+      COMPARE.activeSlot = 1;
+      alert("Select Pokémon for Slot 1");
+    });
 
-  if (!p) return;
+  document.getElementById("compare-slot-2")
+    .addEventListener("click", () => {
+      COMPARE.activeSlot = 2;
+      alert("Select Pokémon for Slot 2");
+    });
 
-  PokedexController.narratePokemon(p, speak);
-};
+  document.getElementById("action-a")
+    .addEventListener("click", runCompare);
+}
 
-init();
+// ---------------- VIEW SWITCH ----------------
+function switchView(view) {
+  document.querySelectorAll(".view")
+    .forEach(v => v.classList.add("hidden"));
+
+  document.getElementById("view-" + view)
+    .classList.remove("hidden");
+}
+
+window.speak = speak;
+window.switchView = switchView;
+
