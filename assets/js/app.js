@@ -4,6 +4,9 @@ import { getEvolutionChain } from "./evolution.js";
 import { REGIONS } from "./regions.js";
 import { commandRouter } from "./router.js";
 import { initRegions } from "./ui_regions.js";
+import { initBattleUI, setBattleSelection } from "./ui_battle.js";
+import { renderTeamUI, renderTeamList } from "./ui_team.js";
+import { narrate } from "./narrator.js";
 
 const grid = document.getElementById("grid");
 const detail = document.getElementById("detail");
@@ -17,15 +20,17 @@ async function init() {
 
   initRegions(loadRegion);
 
+  initBattleUI("detail");
+
   loadRegion("kanto");
 
   setupVoice();
 }
 
 /* REGION LOADER */
-async function loadRegion(regionName) {
+async function loadRegion(name) {
 
-  const region = REGIONS[regionName];
+  const region = REGIONS[name];
 
   cache = [];
   grid.innerHTML = "";
@@ -45,7 +50,7 @@ async function loadRegion(regionName) {
   }
 }
 
-/* UI RENDER */
+/* CARD */
 function render(p) {
 
   const card = document.createElement("div");
@@ -57,7 +62,10 @@ function render(p) {
     <div>${p.name}</div>
   `;
 
-  card.onclick = () => show(p);
+  card.onclick = () => {
+    show(p);
+    setBattleSelection(p);
+  };
 
   grid.appendChild(card);
 }
@@ -77,15 +85,19 @@ async function show(p) {
   detail.innerHTML = `
     <h2>${p.name}</h2>
     <img src="${p.sprites.front_default}">
-    <p><b>Evolution:</b> ${evo}</p>
+    <p>${evo}</p>
 
     <button onclick="speak('${p.name}')">
       Speak
     </button>
+
+    <button onclick="narratePokemon('${p.name}')">
+      Narrate
+    </button>
   `;
 }
 
-/* VOICE + COMMAND ROUTER */
+/* VOICE */
 function setupVoice() {
 
   const SpeechRecognition =
@@ -103,10 +115,10 @@ function setupVoice() {
     const text =
       e.results[0][0].transcript;
 
-    const result =
+    const cmd =
       commandRouter(text, { cache });
 
-    handleCommand(result);
+    handle(cmd);
   };
 
   document.addEventListener("click", () => {
@@ -114,26 +126,35 @@ function setupVoice() {
   }, { once: true });
 }
 
-/* COMMAND EXECUTOR */
-function handleCommand(cmd) {
+/* COMMAND HANDLER */
+function handle(cmd) {
 
-  if (cmd === "kanto" ||
-      cmd === "johto" ||
-      cmd === "hoenn" ||
-      cmd === "sinnoh") {
+  if (typeof cmd === "string") {
 
-    loadRegion(cmd);
+    if (REGIONS[cmd]) loadRegion(cmd);
   }
 
   if (cmd?.action === "show") {
     if (cmd.data) show(cmd.data);
   }
-
-  console.log("CMD:", cmd);
 }
 
-/* GLOBAL SPEECH */
+/* GLOBAL FUNCTIONS */
 window.speak = function(text) {
+  speechSynthesis.speak(
+    new SpeechSynthesisUtterance(text)
+  );
+};
+
+window.narratePokemon = function(name) {
+
+  const p =
+    cache.find(x => x.name === name);
+
+  if (!p) return;
+
+  const text = narrate(p);
+
   speechSynthesis.speak(
     new SpeechSynthesisUtterance(text)
   );

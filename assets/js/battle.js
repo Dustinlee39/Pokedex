@@ -1,40 +1,37 @@
 import { TYPE_MATRIX } from "./typeMatrix.js";
 
-export function calculateAdvantage(attackerTypes, defenderTypes) {
+export function battleReport(a, b) {
 
-  let multiplier = 1;
+  const aScore = score(a, b);
+  const bScore = score(b, a);
 
-  for (let a of attackerTypes) {
-    for (let d of defenderTypes) {
+  return {
+    a: a.name,
+    b: b.name,
+    aScore,
+    bScore,
+    result:
+      aScore > bScore
+        ? `${a.name} has advantage`
+        : bScore > aScore
+        ? `${b.name} has advantage`
+        : "Even matchup"
+  };
+}
+
+function score(attacker, defender) {
+
+  let total = 1;
+
+  for (let t of attacker.types) {
+    for (let d of defender.types) {
 
       const mod =
-        TYPE_MATRIX[a]?.[d] ?? 1;
+        TYPE_MATRIX[t]?.[d] ?? 1;
 
-      multiplier *= mod;
+      total *= mod;
     }
   }
 
-  return multiplier;
-}
-
-export function battleReport(p1, p2) {
-
-  const p1Score =
-    calculateAdvantage(p1.types, p2.types);
-
-  const p2Score =
-    calculateAdvantage(p2.types, p1.types);
-
-  return {
-    p1: p1.name,
-    p2: p2.name,
-    p1Score,
-    p2Score,
-    result:
-      p1Score > p2Score
-        ? `${p1.name} wins advantage`
-        : p2Score > p1Score
-        ? `${p2.name} wins advantage`
-        : "Even matchup"
-  };
+  return total;
 }
