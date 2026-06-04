@@ -1,14 +1,10 @@
 
 // =======================================
-// POKÉDEX MAIN APP (Termux-safe build)
+// POKÉDEX FIXED CORE (COMPARE UI FIX)
 // =======================================
 
 const POKEDEX = {
   pokemon: [],
-  favorites: JSON.parse(localStorage.getItem('favorites') || "[]"),
-  caught: new Set(JSON.parse(localStorage.getItem('caught') || "[]")),
-  seen: new Set(JSON.parse(localStorage.getItem('seen') || "[]")),
-  shinies: new Set(JSON.parse(localStorage.getItem('shinies') || "[]")),
 };
 
 const COMPARE = {
@@ -17,15 +13,14 @@ const COMPARE = {
   activeSlot: null
 };
 
-// ---------------- DOM ----------------
 document.addEventListener("DOMContentLoaded", async () => {
-  await loadPokemonData();
-  renderPokemonGrid();
-  setupUI();
+  await loadPokemon();
+  render();
+  wireUI();
 });
 
-// ---------------- DATA ----------------
-async function loadPokemonData() {
+// ---------------- LOAD ----------------
+async function loadPokemon() {
   const res = await fetch("https://pokeapi.co/api/v2/pokemon?limit=151");
   const data = await res.json();
 
@@ -38,65 +33,54 @@ async function loadPokemonData() {
         id: d.id,
         name: d.name,
         sprite: d.sprites.front_default,
-        stats: d.stats,
-        types: d.types.map(t => t.type.name),
-        height: d.height,
-        weight: d.weight
+        stats: d.stats
       };
     })
   );
 }
 
-// ---------------- GRID ----------------
-function renderPokemonGrid(list = POKEDEX.pokemon) {
+// ---------------- RENDER ----------------
+function render() {
   const grid = document.getElementById("pokemon-grid");
   grid.innerHTML = "";
 
-  list.forEach(poke => {
+  POKEDEX.pokemon.forEach(p => {
     const card = document.createElement("div");
     card.className = "poke-card";
 
     card.innerHTML = `
-      <img src="${poke.sprite}" />
-      <div>${poke.name}</div>
+      <img src="${p.sprite}">
+      <div>${p.name}</div>
     `;
 
-    card.addEventListener("click", () => {
-      // SLOT 1
+    card.onclick = () => {
+
       if (COMPARE.activeSlot === 1) {
-        COMPARE.slot1 = poke;
-        document.getElementById("compare-slot-1").innerText = poke.name;
+        COMPARE.slot1 = p;
+        document.getElementById("compare-slot-1").innerText = p.name;
         COMPARE.activeSlot = null;
         return;
       }
 
-      // SLOT 2
       if (COMPARE.activeSlot === 2) {
-        COMPARE.slot2 = poke;
-        document.getElementById("compare-slot-2").innerText = poke.name;
+        COMPARE.slot2 = p;
+        document.getElementById("compare-slot-2").innerText = p.name;
         COMPARE.activeSlot = null;
         return;
       }
 
-      showDetail(poke);
-    });
+      showDetail(p);
+    };
 
     grid.appendChild(card);
   });
 }
 
 // ---------------- DETAIL ----------------
-function showDetail(poke) {
-  const el = document.getElementById("detail-content");
-
-  el.innerHTML = `
-    <h2>${poke.name}</h2>
-    <img src="${poke.sprite}" />
-
-    <p>Height: ${poke.height}</p>
-    <p>Weight: ${poke.weight}</p>
-
-    <button onclick="speak('${poke.name}')">Speak</button>
+function showDetail(p) {
+  document.getElementById("detail-content").innerHTML = `
+    <h2>${p.name}</h2>
+    <img src="${p.sprite}">
   `;
 
   switchView("detail");
@@ -105,61 +89,67 @@ function showDetail(poke) {
 // ---------------- COMPARE ----------------
 function runCompare() {
   if (!COMPARE.slot1 || !COMPARE.slot2) {
-    alert("Select 2 Pokémon first");
+    alert("Pick two Pokémon first");
     return;
   }
 
   const a = COMPARE.slot1;
   const b = COMPARE.slot2;
 
-  const html = `
+  document.getElementById("compare-results").innerHTML = `
     <h3>${a.name} vs ${b.name}</h3>
-
     <p>HP: ${a.stats[0].base_stat} vs ${b.stats[0].base_stat}</p>
     <p>ATK: ${a.stats[1].base_stat} vs ${b.stats[1].base_stat}</p>
     <p>DEF: ${a.stats[2].base_stat} vs ${b.stats[2].base_stat}</p>
-    <p>SPD: ${a.stats[5].base_stat} vs ${b.stats[5].base_stat}</p>
   `;
 
-  document.getElementById("compare-results").innerHTML = html;
   document.getElementById("compare-results").classList.remove("hidden");
 }
 
-// ---------------- VOICE ----------------
-function speak(text) {
-  speechSynthesis.speak(
-    new SpeechSynthesisUtterance(text)
-  );
-}
-
 // ---------------- UI ----------------
-function setupUI() {
+function wireUI() {
 
-  document.getElementById("compare-slot-1")
-    .addEventListener("click", () => {
+  const slot1 = document.getElementById("compare-slot-1");
+  const slot2 = document.getElementById("compare-slot-2");
+
+  if (slot1) {
+    slot1.onclick = () => {
       COMPARE.activeSlot = 1;
-      alert("Select Pokémon for Slot 1");
-    });
+      alert("Slot 1 active - pick a Pokémon");
+    };
+  }
 
-  document.getElementById("compare-slot-2")
-    .addEventListener("click", () => {
+  if (slot2) {
+    slot2.onclick = () => {
       COMPARE.activeSlot = 2;
-      alert("Select Pokémon for Slot 2");
-    });
+      alert("Slot 2 active - pick a Pokémon");
+    };
+  }
 
-  document.getElementById("action-a")
-    .addEventListener("click", runCompare);
+  const btn = document.getElementById("action-a");
+  if (btn) {
+    btn.onclick = runCompare;
+  }
+
+  const navCompare = document.querySelector('[data-view="compare"]');
+  if (navCompare) {
+    navCompare.onclick = () => switchView("compare");
+  }
 }
 
 // ---------------- VIEW SWITCH ----------------
-function switchView(view) {
-  document.querySelectorAll(".view")
-    .forEach(v => v.classList.add("hidden"));
+function switchView(v) {
 
-  document.getElementById("view-" + view)
-    .classList.remove("hidden");
+  document.querySelectorAll(".view").forEach(el => {
+    el.classList.add("hidden");
+  });
+
+  const target = document.getElementById("view-" + v);
+
+  if (target) {
+    target.classList.remove("hidden");
+  }
 }
 
-window.speak = speak;
 window.switchView = switchView;
 
