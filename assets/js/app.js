@@ -1,33 +1,42 @@
+import { openDB, savePokemon, getPokemon } from "./db.js";
+import { fetchPokemon } from "./api.js";
+
 const grid = document.getElementById("grid");
 const detail = document.getElementById("detail");
 
-let cache = [];
+let db;
 
-async function load() {
-  const res = await fetch("https://pokeapi.co/api/v2/pokemon?limit=151");
-  const data = await res.json();
-  cache = data.results;
-  render();
+async function init() {
+  db = await openDB();
+  load();
 }
 
-async function render() {
-  grid.innerHTML = "";
+async function load() {
+  for (let i = 1; i <= 151; i++) {
 
-  for (let p of cache) {
-    const res = await fetch(p.url);
-    const d = await res.json();
+    let pokemon = await getPokemon(db, i);
 
-    const card = document.createElement("div");
-    card.className = "card";
+    if (!pokemon) {
+      pokemon = await fetchPokemon(i);
+      pokemon.id = i;
+      savePokemon(db, pokemon);
+    }
 
-    card.innerHTML = `
-      <img src="${d.sprites.front_default}">
-      <div>${d.name}</div>
-    `;
-
-    card.onclick = () => show(d);
-    grid.appendChild(card);
+    renderCard(pokemon);
   }
+}
+
+function renderCard(p) {
+  const card = document.createElement("div");
+  card.className = "card";
+
+  card.innerHTML = `
+    <img src="${p.sprites.front_default}">
+    <div>${p.name}</div>
+  `;
+
+  card.onclick = () => show(p);
+  grid.appendChild(card);
 }
 
 function show(p) {
@@ -41,13 +50,9 @@ function show(p) {
 }
 
 function speak(text) {
-  const msg = new SpeechSynthesisUtterance(text);
-  speechSynthesis.speak(msg);
+  speechSynthesis.speak(
+    new SpeechSynthesisUtterance(text)
+  );
 }
 
-load();
-
-// register service worker
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/service-worker.js");
-}
+init();
