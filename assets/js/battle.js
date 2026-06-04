@@ -1,33 +1,40 @@
-import { typeEffectiveness } from "./types.js";
+import { TYPE_MATRIX } from "./typeMatrix.js";
 
-export function battleAdvice(attacker, defender) {
+export function calculateAdvantage(attackerTypes, defenderTypes) {
 
-  const results = [];
+  let multiplier = 1;
 
-  for (let atkType of attacker.types) {
+  for (let a of attackerTypes) {
+    for (let d of defenderTypes) {
 
-    const score = typeEffectiveness(atkType, defender.types);
+      const mod =
+        TYPE_MATRIX[a]?.[d] ?? 1;
 
-    results.push({
-      type: atkType,
-      multiplier: score
-    });
+      multiplier *= mod;
+    }
   }
 
-  const best = results.reduce((a, b) =>
-    a.multiplier > b.multiplier ? a : b
-  );
+  return multiplier;
+}
+
+export function battleReport(p1, p2) {
+
+  const p1Score =
+    calculateAdvantage(p1.types, p2.types);
+
+  const p2Score =
+    calculateAdvantage(p2.types, p1.types);
 
   return {
-    attacker: attacker.name,
-    defender: defender.name,
-    bestType: best.type,
-    multiplier: best.multiplier,
-    verdict:
-      best.multiplier > 1
-        ? `${attacker.name} has advantage`
-        : best.multiplier < 1
-        ? `${defender.name} has advantage`
+    p1: p1.name,
+    p2: p2.name,
+    p1Score,
+    p2Score,
+    result:
+      p1Score > p2Score
+        ? `${p1.name} wins advantage`
+        : p2Score > p1Score
+        ? `${p2.name} wins advantage`
         : "Even matchup"
   };
 }

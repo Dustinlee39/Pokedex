@@ -1,8 +1,7 @@
 import { openDB, savePokemon, getPokemon } from "./db.js";
 import { fetchPokemon } from "./api.js";
 import { getEvolutionChain } from "./evolution.js";
-import { parseCommand } from "./voice.js";
-import { battleAdvice } from "./battle.js";
+import { REGIONS } from "./regions.js";
 
 const grid = document.getElementById("grid");
 const detail = document.getElementById("detail");
@@ -14,14 +13,19 @@ async function init() {
 
   db = await openDB();
 
-  await load();
+  loadRegion("kanto");
 
   setupVoice();
 }
 
-async function load() {
+async function loadRegion(regionName) {
 
-  for (let i = 1; i <= 151; i++) {
+  const region = REGIONS[regionName];
+
+  cache = [];
+  grid.innerHTML = "";
+
+  for (let i = region.start; i <= region.end; i++) {
 
     let p = await getPokemon(db, i);
 
@@ -32,7 +36,6 @@ async function load() {
     }
 
     cache.push(p);
-
     render(p);
   }
 }
@@ -54,24 +57,23 @@ function render(p) {
 
 async function show(p) {
 
-  let evoText = "";
+  let evo = "";
 
   try {
-    const evo = await getEvolutionChain(p.species.url);
-    evoText = evo.map(e => e.name).join(" → ");
+    const chain =
+      await getEvolutionChain(p.species.url);
+
+    evo = chain.map(x => x.name).join(" → ");
   } catch {}
 
   detail.innerHTML = `
     <h2>${p.name}</h2>
     <img src="${p.sprites.front_default}">
-    <p><b>Evolution:</b> ${evoText}</p>
-
-    <button onclick="speak('${p.name}')">Speak</button>
+    <p><b>Evolution:</b> ${evo}</p>
   `;
 }
 
-/* ---------------- VOICE ---------------- */
-
+/* Voice system placeholder */
 function setupVoice() {
 
   const SpeechRecognition =
@@ -81,32 +83,18 @@ function setupVoice() {
   if (!SpeechRecognition) return;
 
   const rec = new SpeechRecognition();
-
-  rec.continuous = false;
   rec.lang = "en-US";
 
   rec.onresult = (e) => {
+    const text =
+      e.results[0][0].transcript;
 
-    const text = e.results[0][0].transcript;
-
-    const result = parseCommand(
-      text,
-      cache,
-      show
-    );
-
-    console.log(result);
+    console.log("VOICE:", text);
   };
 
   document.addEventListener("click", () => {
     rec.start();
   }, { once: true });
 }
-
-window.speak = function(text) {
-  speechSynthesis.speak(
-    new SpeechSynthesisUtterance(text)
-  );
-};
 
 init();
