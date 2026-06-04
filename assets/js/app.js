@@ -1,12 +1,7 @@
-import { openDB, savePokemon, getPokemon } from "./db.js";
+import { openDB, getPokemon, savePokemon } from "./db.js";
 import { fetchPokemon } from "./api.js";
-import { getEvolutionChain } from "./evolution.js";
 import { REGIONS } from "./regions.js";
-import { commandRouter } from "./router.js";
-import { initRegions } from "./ui_regions.js";
-import { initBattleUI, setBattleSelection } from "./ui_battle.js";
-import { renderTeamUI, renderTeamList } from "./ui_team.js";
-import { narrate } from "./narrator.js";
+import { PokedexController } from "./controller.js";
 
 const grid = document.getElementById("grid");
 const detail = document.getElementById("detail");
@@ -15,12 +10,7 @@ let db;
 let cache = [];
 
 async function init() {
-
   db = await openDB();
-
-  initRegions(loadRegion);
-
-  initBattleUI("detail");
 
   loadRegion("kanto");
 
@@ -34,6 +24,8 @@ async function loadRegion(name) {
 
   cache = [];
   grid.innerHTML = "";
+
+  PokedexController.state.cache = cache;
 
   for (let i = region.start; i <= region.end; i++) {
 
@@ -50,11 +42,10 @@ async function loadRegion(name) {
   }
 }
 
-/* CARD */
+/* RENDER */
 function render(p) {
 
   const card = document.createElement("div");
-
   card.className = "card";
 
   card.innerHTML = `
@@ -62,34 +53,25 @@ function render(p) {
     <div>${p.name}</div>
   `;
 
-  card.onclick = () => {
-    show(p);
-    setBattleSelection(p);
-  };
+  card.onclick = () =>
+    PokedexController.selectPokemon(p, {
+      showDetail,
+      speak: speak
+    });
 
   grid.appendChild(card);
 }
 
 /* DETAIL VIEW */
-async function show(p) {
+async function showDetail(p) {
 
-  let evo = "";
-
-  try {
-    const chain =
-      await getEvolutionChain(p.species.url);
-
-    evo = chain.map(x => x.name).join(" → ");
-  } catch {}
+  const evo =
+    await PokedexController.getEvolutionText(p);
 
   detail.innerHTML = `
     <h2>${p.name}</h2>
     <img src="${p.sprites.front_default}">
     <p>${evo}</p>
-
-    <button onclick="speak('${p.name}')">
-      Speak
-    </button>
 
     <button onclick="narratePokemon('${p.name}')">
       Narrate
@@ -107,7 +89,6 @@ function setupVoice() {
   if (!SpeechRecognition) return;
 
   const rec = new SpeechRecognition();
-
   rec.lang = "en-US";
 
   rec.onresult = (e) => {
@@ -115,10 +96,19 @@ function setupVoice() {
     const text =
       e.results[0][0].transcript;
 
-    const cmd =
-      commandRouter(text, { cache });
+    const result =
+      PokedexController.voiceCommand(text, {
+        loadRegion,
+        findByName: (name) =>
+          cache.find(p => p.name === name)
+      });
 
-    handle(cmd);
+    if (result && typeof result === "object") {
+      PokedexController.selectPokemon(result, {
+        showDetail,
+        speak
+      });
+    }
   };
 
   document.addEventListener("click", () => {
@@ -126,25 +116,12 @@ function setupVoice() {
   }, { once: true });
 }
 
-/* COMMAND HANDLER */
-function handle(cmd) {
-
-  if (typeof cmd === "string") {
-
-    if (REGIONS[cmd]) loadRegion(cmd);
-  }
-
-  if (cmd?.action === "show") {
-    if (cmd.data) show(cmd.data);
-  }
-}
-
-/* GLOBAL FUNCTIONS */
-window.speak = function(text) {
+/* SPEECH */
+function speak(text) {
   speechSynthesis.speak(
     new SpeechSynthesisUtterance(text)
   );
-};
+}
 
 window.narratePokemon = function(name) {
 
@@ -153,11 +130,7 @@ window.narratePokemon = function(name) {
 
   if (!p) return;
 
-  const text = narrate(p);
-
-  speechSynthesis.speak(
-    new SpeechSynthesisUtterance(text)
-  );
+  PokedexController.narratePokemon(p, speak);
 };
 
 init();
