@@ -1,22 +1,61 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pokédex</title>
-<link rel="stylesheet" href="assets/css/styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pokédex</title>
+  <link rel="stylesheet" href="assets/css/styles.css">
 </head>
-
 <body>
 
-<header>
-<h1>Pokédex</h1>
-</header>
+<div id="app">
 
-<div id="grid"></div>
-<div id="detail"></div>
+  <div id="pokemon-grid"></div>
 
-<script type="module" src="assets/js/app.js"></script>
+  <!-- DETAIL -->
+  <div id="view-detail" class="view hidden">
+    <button onclick="switchView('home')">Back</button>
+    <div id="detail-content"></div>
+  </div>
+
+  <!-- COMPARE VIEW -->
+  <div id="view-compare" class="view hidden">
+    <h2>Compare</h2>
+
+    <div id="compare-slot-1" style="padding:10px;border:1px solid #ccc;margin:5px;">
+      Slot 1
+    </div>
+
+    <div id="compare-slot-2" style="padding:10px;border:1px solid #ccc;margin:5px;">
+      Slot 2
+    </div>
+
+    <button id="action-a">Compare</button>
+
+    <div id="compare-results"></div>
+  </div>
+
+</div>
+
+<!-- NAV BAR (FORCED VISIBLE) -->
+<nav style="
+  position:fixed;
+  bottom:0;
+  left:0;
+  right:0;
+  display:flex;
+  justify-content:space-around;
+  background:#111;
+  padding:10px;
+  color:white;
+">
+
+  <button class="nav-btn" data-view="home">Home</button>
+  <button class="nav-btn" data-view="compare">Compare</button>
+
+</nav>
+
+<script src="assets/js/app.js"></script>
 
 </body>
 </html>

@@ -1,30 +1,23 @@
 
-// =======================================
-// POKÉDEX FIXED CORE (COMPARE UI FIX)
-// =======================================
-
-const POKEDEX = {
-  pokemon: [],
-};
-
 const COMPARE = {
   slot1: null,
   slot2: null,
   activeSlot: null
 };
 
+let POKEDEX = [];
+
 document.addEventListener("DOMContentLoaded", async () => {
-  await loadPokemon();
+  await load();
   render();
-  wireUI();
+  wire();
 });
 
-// ---------------- LOAD ----------------
-async function loadPokemon() {
+async function load() {
   const res = await fetch("https://pokeapi.co/api/v2/pokemon?limit=151");
   const data = await res.json();
 
-  POKEDEX.pokemon = await Promise.all(
+  POKEDEX = await Promise.all(
     data.results.map(async (p) => {
       const r = await fetch(p.url);
       const d = await r.json();
@@ -39,19 +32,15 @@ async function loadPokemon() {
   );
 }
 
-// ---------------- RENDER ----------------
 function render() {
   const grid = document.getElementById("pokemon-grid");
+  if (!grid) return;
+
   grid.innerHTML = "";
 
-  POKEDEX.pokemon.forEach(p => {
+  POKEDEX.forEach(p => {
     const card = document.createElement("div");
-    card.className = "poke-card";
-
-    card.innerHTML = `
-      <img src="${p.sprite}">
-      <div>${p.name}</div>
-    `;
+    card.innerHTML = p.name;
 
     card.onclick = () => {
 
@@ -68,28 +57,37 @@ function render() {
         COMPARE.activeSlot = null;
         return;
       }
-
-      showDetail(p);
     };
 
     grid.appendChild(card);
   });
 }
 
-// ---------------- DETAIL ----------------
-function showDetail(p) {
-  document.getElementById("detail-content").innerHTML = `
-    <h2>${p.name}</h2>
-    <img src="${p.sprite}">
-  `;
+function wire() {
 
-  switchView("detail");
+  document.querySelectorAll(".nav-btn").forEach(btn => {
+    btn.onclick = () => {
+      switchView(btn.dataset.view);
+    };
+  });
+
+  document.getElementById("compare-slot-1").onclick = () => {
+    COMPARE.activeSlot = 1;
+    alert("Pick Pokémon for Slot 1");
+  };
+
+  document.getElementById("compare-slot-2").onclick = () => {
+    COMPARE.activeSlot = 2;
+    alert("Pick Pokémon for Slot 2");
+  };
+
+  document.getElementById("action-a").onclick = runCompare;
 }
 
-// ---------------- COMPARE ----------------
 function runCompare() {
+
   if (!COMPARE.slot1 || !COMPARE.slot2) {
-    alert("Pick two Pokémon first");
+    alert("Need 2 Pokémon");
     return;
   }
 
@@ -98,57 +96,18 @@ function runCompare() {
 
   document.getElementById("compare-results").innerHTML = `
     <h3>${a.name} vs ${b.name}</h3>
-    <p>HP: ${a.stats[0].base_stat} vs ${b.stats[0].base_stat}</p>
-    <p>ATK: ${a.stats[1].base_stat} vs ${b.stats[1].base_stat}</p>
-    <p>DEF: ${a.stats[2].base_stat} vs ${b.stats[2].base_stat}</p>
+    <p>HP ${a.stats[0].base_stat} vs ${b.stats[0].base_stat}</p>
   `;
-
-  document.getElementById("compare-results").classList.remove("hidden");
 }
 
-// ---------------- UI ----------------
-function wireUI() {
-
-  const slot1 = document.getElementById("compare-slot-1");
-  const slot2 = document.getElementById("compare-slot-2");
-
-  if (slot1) {
-    slot1.onclick = () => {
-      COMPARE.activeSlot = 1;
-      alert("Slot 1 active - pick a Pokémon");
-    };
-  }
-
-  if (slot2) {
-    slot2.onclick = () => {
-      COMPARE.activeSlot = 2;
-      alert("Slot 2 active - pick a Pokémon");
-    };
-  }
-
-  const btn = document.getElementById("action-a");
-  if (btn) {
-    btn.onclick = runCompare;
-  }
-
-  const navCompare = document.querySelector('[data-view="compare"]');
-  if (navCompare) {
-    navCompare.onclick = () => switchView("compare");
-  }
-}
-
-// ---------------- VIEW SWITCH ----------------
 function switchView(v) {
 
-  document.querySelectorAll(".view").forEach(el => {
-    el.classList.add("hidden");
+  document.querySelectorAll(".view").forEach(x => {
+    x.classList.add("hidden");
   });
 
-  const target = document.getElementById("view-" + v);
-
-  if (target) {
-    target.classList.remove("hidden");
-  }
+  const el = document.getElementById("view-" + v);
+  if (el) el.classList.remove("hidden");
 }
 
 window.switchView = switchView;
