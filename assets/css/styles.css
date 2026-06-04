@@ -1,0 +1,35 @@
+body {
+  margin: 0;
+  font-family: sans-serif;
+  background: #111;
+  color: white;
+}
+
+header {
+  padding: 12px;
+  text-align: center;
+}
+
+#search {
+  width: 90%;
+  padding: 10px;
+  margin-top: 10px;
+}
+
+#grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  padding: 10px;
+}
+
+.card {
+  background: #222;
+  border-radius: 10px;
+  padding: 10px;
+  text-align: center;
+}
+
+.card img {
+  width: 80px;
+}
